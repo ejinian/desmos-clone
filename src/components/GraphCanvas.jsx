@@ -121,12 +121,12 @@ function GraphCanvas({ equation }) {
 
     const gridSpacing = scale < 20 ? scale * 2 : scale
 
-    ctx.strokeStyle = scale < 15 ? '#F0EFEF' : '#e0e0e0'
+    ctx.strokeStyle = scale < 15 ? '#f0efef' : '#e0e0e0'
     ctx.lineWidth = scale < 10 ? 0.5 : 1
 
-    const startX = Math.floor(-offsetX / gridSpacing) * gridSpacing + (originX % gridSpacing)
-    for (let x = startX; x < canvasSize.width; x += gridSpacing) {
-      if (x >= 0 && x <= canvasSize.width) {
+    const firstVerticalLine = Math.floor(-originX / gridSpacing) * gridSpacing + originX
+    for (let x = firstVerticalLine; x <= canvasSize.width + gridSpacing; x += gridSpacing) {
+      if (x >= -gridSpacing && x <= canvasSize.width + gridSpacing) {
         ctx.beginPath()
         ctx.moveTo(x, 0)
         ctx.lineTo(x, canvasSize.height)
@@ -134,9 +134,9 @@ function GraphCanvas({ equation }) {
       }
     }
 
-    const startY = Math.floor(-offsetY / gridSpacing) * gridSpacing + (originY % gridSpacing)
-    for (let y = startY; y < canvasSize.height; y += gridSpacing) {
-      if (y >= 0 && y <= canvasSize.height) {
+    const firstHorizontalLine = Math.floor(-originY / gridSpacing) * gridSpacing + originY
+    for (let y = firstHorizontalLine; y <= canvasSize.height + gridSpacing; y += gridSpacing) {
+      if (y >= -gridSpacing && y <= canvasSize.height + gridSpacing) {
         ctx.beginPath()
         ctx.moveTo(0, y)
         ctx.lineTo(canvasSize.width, y)
@@ -167,11 +167,13 @@ function GraphCanvas({ equation }) {
       ctx.textAlign = 'center'
 
       const labelSpacing = gridSpacing
-      const startLabelX = Math.floor((-offsetX - originX) / labelSpacing) * labelSpacing
-      for (let i = startLabelX; i * labelSpacing + originX < canvasSize.width; i++) {
+      const firstXLabel = Math.floor(-originX / labelSpacing)
+      const lastXLabel = Math.ceil((canvasSize.width - originX) / labelSpacing)
+      
+      for (let i = firstXLabel; i <= lastXLabel; i++) {
         if (i !== 0) {
           const x = originX + i * labelSpacing
-          if (x >= 0 && x <= canvasSize.width && originY >= 0 && originY <= canvasSize.height) {
+          if (x >= -20 && x <= canvasSize.width + 20 && originY >= 0 && originY <= canvasSize.height) {
             const value = (i * gridSpacing / scale).toFixed(gridSpacing / scale < 1 ? 1 : 0)
             ctx.fillText(value, x, originY + 15)
           }
@@ -179,11 +181,13 @@ function GraphCanvas({ equation }) {
       }
 
       ctx.textAlign = 'right'
-      const startLabelY = Math.floor((offsetY + originY) / labelSpacing) * labelSpacing
-      for (let i = startLabelY; -i * labelSpacing + originY >= 0; i++) {
+      const firstYLabel = Math.floor(-originY / labelSpacing)
+      const lastYLabel = Math.ceil((canvasSize.height - originY) / labelSpacing)
+      
+      for (let i = -lastYLabel; i <= -firstYLabel; i++) {
         if (i !== 0) {
           const y = originY - i * labelSpacing
-          if (y >= 0 && y <= canvasSize.height && originX >= 0 && originX <= canvasSize.width) {
+          if (y >= -20 && y <= canvasSize.height + 20 && originX >= 0 && originX <= canvasSize.width) {
             const value = (i * gridSpacing / scale).toFixed(gridSpacing / scale < 1 ? 1 : 0)
             ctx.fillText(value, originX - 10, y + 4)
           }
