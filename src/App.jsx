@@ -1,14 +1,15 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import EquationInput from './components/EquationInput'
 import GraphCanvas from './components/GraphCanvas'
+import './App.css'
 
 function App() {
   const [equation, setEquation] = useState('x^2')
 
   return (
-    <div style={{ display: 'flex', height: '100vh' }}>
+    <div className="app">
       {/* left side */}
-      <div style={{ width: '300px', padding: '20px', borderRight: '1px solid #ccc' }}>
+      <div className="sidebar">
         <h2>Equations</h2>
         <EquationInput 
           value={equation}
@@ -17,7 +18,7 @@ function App() {
       </div>
       
       {/* right side */}
-      <div style={{ flex: 1, padding: '20px' }}>
+      <div className="graph-area">
         <GraphCanvas equation={equation} />
       </div>
     </div>

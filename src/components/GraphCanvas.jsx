@@ -1,38 +1,112 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
+
+function evaluateEquation(equation, x) {
+  try {
+    let expr = equation
+      .replace(/\^/g, '**')
+      .replace(/sin/g, 'Math.sin')
+      .replace(/cos/g, 'Math.cos')
+      .replace(/tan/g, 'Math.tan')
+      .replace(/log/g, 'Math.log')
+      .replace(/sqrt/g, 'Math.sqrt')
+      .replace(/pi/g, 'Math.PI')
+      .replace(/e/g, 'Math.E')
+      .replace(/(\d)x/g, '$1*x')
+      .replace(/x(\d)/g, 'x*$1')
+      .replace(/\)x/g, ')*x')
+      .replace(/x\(/g, 'x*(')
+      .replace(/x/g, `(${x})`)
+
+    const func = new Function('return ' + expr)
+    const result = func()
+
+    return isFinite(result) ? result : null
+  } catch (error) {
+    return null
+  }
+}
 
 function GraphCanvas({ equation }) {
   const canvasRef = useRef(null)
+  const containerRef = useRef(null)
+  const [scale, setScale] = useState(40)
+  const [offsetX, setOffsetX] = useState(0)
+  const [offsetY, setOffsetY] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 })
+  const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 })
 
-  const CANVAS_WIDTH = 600
-  const CANVAS_HEIGHT = 400
-  const SCALE = 40
-  const ORIGIN_X = CANVAS_WIDTH / 2
-  const ORIGIN_Y = CANVAS_HEIGHT / 2
+  const MIN_SCALE = 5
+  const MAX_SCALE = 200
 
-  const evaluateEquation = (equation, x) => {
-    try {
-      let expr = equation
-        .replace(/\^/g, '**')
-        .replace(/sin/g, 'Math.sin')
-        .replace(/cos/g, 'Math.cos')
-        .replace(/tan/g, 'Math.tan')
-        .replace(/log/g, 'Math.log')
-        .replace(/sqrt/g, 'Math.sqrt') 
-        .replace(/pi/g, 'Math.PI')
-        .replace(/e/g, 'Math.E')
-        .replace(/(\d)x/g, '$1*x')
-        .replace(/x(\d)/g, 'x*$1')
-        .replace(/\)x/g, ')*x')
-        .replace(/x\(/g, 'x*(')
-        .replace(/x/g, `(${x})`)
-
-      const func = new Function('return ' + expr)
-      const result = func()
-      
-      return isFinite(result) ? result : null
-    } catch (error) {
-      return null
+  useEffect(() => {
+    const updateCanvasSize = () => {
+      if (containerRef.current) {
+        const container = containerRef.current
+        const rect = container.getBoundingClientRect()
+        setCanvasSize({
+          width: rect.width - 40,
+          height: rect.height - 40
+        })
+      }
     }
+
+    updateCanvasSize()
+    window.addEventListener('resize', updateCanvasSize)
+    return () => window.removeEventListener('resize', updateCanvasSize)
+  }, [])
+
+  const handleWheel = (event) => {
+    event.preventDefault()
+    const zoomFactor = event.deltaY > 0 ? 0.9 : 1.1
+    setScale(prevScale => {
+      const newScale = prevScale * zoomFactor
+      return Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale))
+    })
+  }
+
+  const handleMouseDown = (event) => {
+    setIsDragging(true)
+    const rect = canvasRef.current.getBoundingClientRect()
+    setLastMousePos({
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top
+    })
+  }
+
+  const handleMouseMove = (event) => {
+    if (!isDragging) return
+    
+    const rect = canvasRef.current.getBoundingClientRect()
+    const currentMousePos = {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top
+    }
+    
+    const deltaX = currentMousePos.x - lastMousePos.x
+    const deltaY = currentMousePos.y - lastMousePos.y
+    
+    setOffsetX(prev => prev + deltaX)
+    setOffsetY(prev => prev + deltaY)
+    setLastMousePos(currentMousePos)
+  }
+
+  const handleMouseUp = () => {
+    setIsDragging(false)
+  }
+
+  const zoomIn = () => {
+    setScale(prevScale => Math.min(MAX_SCALE, prevScale * 1.2))
+  }
+
+  const zoomOut = () => {
+    setScale(prevScale => Math.max(MIN_SCALE, prevScale / 1.2))
+  }
+
+  const resetView = () => {
+    setScale(40)
+    setOffsetX(0)
+    setOffsetY(0)
   }
 
   const drawGraph = () => {
@@ -40,108 +114,161 @@ function GraphCanvas({ equation }) {
     if (!canvas) return
 
     const ctx = canvas.getContext('2d')
-    
-    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
-    
-    ctx.strokeStyle = '#e0e0e0'
-    ctx.lineWidth = 1
-    
-    for (let x = 0; x < CANVAS_WIDTH; x += SCALE) {
-      ctx.beginPath()
-      ctx.moveTo(x, 0)
-      ctx.lineTo(x, CANVAS_HEIGHT)
-      ctx.stroke()
+    ctx.clearRect(0, 0, canvasSize.width, canvasSize.height)
+
+    const originX = canvasSize.width / 2 + offsetX
+    const originY = canvasSize.height / 2 + offsetY
+
+    const gridSpacing = scale < 20 ? scale * 2 : scale
+
+    ctx.strokeStyle = scale < 15 ? '#F0EFEF' : '#e0e0e0'
+    ctx.lineWidth = scale < 10 ? 0.5 : 1
+
+    const startX = Math.floor(-offsetX / gridSpacing) * gridSpacing + (originX % gridSpacing)
+    for (let x = startX; x < canvasSize.width; x += gridSpacing) {
+      if (x >= 0 && x <= canvasSize.width) {
+        ctx.beginPath()
+        ctx.moveTo(x, 0)
+        ctx.lineTo(x, canvasSize.height)
+        ctx.stroke()
+      }
     }
-    
-    for (let y = 0; y < CANVAS_HEIGHT; y += SCALE) {
-      ctx.beginPath()
-      ctx.moveTo(0, y)
-      ctx.lineTo(CANVAS_WIDTH, y)
-      ctx.stroke()
+
+    const startY = Math.floor(-offsetY / gridSpacing) * gridSpacing + (originY % gridSpacing)
+    for (let y = startY; y < canvasSize.height; y += gridSpacing) {
+      if (y >= 0 && y <= canvasSize.height) {
+        ctx.beginPath()
+        ctx.moveTo(0, y)
+        ctx.lineTo(canvasSize.width, y)
+        ctx.stroke()
+      }
     }
-    
+
     ctx.strokeStyle = '#000000'
     ctx.lineWidth = 2
-    
-    ctx.beginPath()
-    ctx.moveTo(0, ORIGIN_Y)
-    ctx.lineTo(CANVAS_WIDTH, ORIGIN_Y)
-    ctx.stroke()
-    
-    ctx.beginPath()
-    ctx.moveTo(ORIGIN_X, 0)
-    ctx.lineTo(ORIGIN_X, CANVAS_HEIGHT)
-    ctx.stroke()
-    
-    ctx.fillStyle = '#666'
-    ctx.font = '12px Arial'
-    ctx.textAlign = 'center'
-    
-    for (let i = -Math.floor(ORIGIN_X / SCALE); i <= Math.floor((CANVAS_WIDTH - ORIGIN_X) / SCALE); i++) {
-      if (i !== 0) {
-        const x = ORIGIN_X + i * SCALE
-        ctx.fillText(i.toString(), x, ORIGIN_Y + 15)
+
+    if (originY >= 0 && originY <= canvasSize.height) {
+      ctx.beginPath()
+      ctx.moveTo(0, originY)
+      ctx.lineTo(canvasSize.width, originY)
+      ctx.stroke()
+    }
+
+    if (originX >= 0 && originX <= canvasSize.width) {
+      ctx.beginPath()
+      ctx.moveTo(originX, 0)
+      ctx.lineTo(originX, canvasSize.height)
+      ctx.stroke()
+    }
+
+    if (scale > 10) {
+      ctx.fillStyle = '#666'
+      ctx.font = `${Math.min(12, scale / 3)}px Arial`
+      ctx.textAlign = 'center'
+
+      const labelSpacing = gridSpacing
+      const startLabelX = Math.floor((-offsetX - originX) / labelSpacing) * labelSpacing
+      for (let i = startLabelX; i * labelSpacing + originX < canvasSize.width; i++) {
+        if (i !== 0) {
+          const x = originX + i * labelSpacing
+          if (x >= 0 && x <= canvasSize.width && originY >= 0 && originY <= canvasSize.height) {
+            const value = (i * gridSpacing / scale).toFixed(gridSpacing / scale < 1 ? 1 : 0)
+            ctx.fillText(value, x, originY + 15)
+          }
+        }
+      }
+
+      ctx.textAlign = 'right'
+      const startLabelY = Math.floor((offsetY + originY) / labelSpacing) * labelSpacing
+      for (let i = startLabelY; -i * labelSpacing + originY >= 0; i++) {
+        if (i !== 0) {
+          const y = originY - i * labelSpacing
+          if (y >= 0 && y <= canvasSize.height && originX >= 0 && originX <= canvasSize.width) {
+            const value = (i * gridSpacing / scale).toFixed(gridSpacing / scale < 1 ? 1 : 0)
+            ctx.fillText(value, originX - 10, y + 4)
+          }
+        }
       }
     }
-    
-    ctx.textAlign = 'right'
-    for (let i = -Math.floor(ORIGIN_Y / SCALE); i <= Math.floor((CANVAS_HEIGHT - ORIGIN_Y) / SCALE); i++) {
-      if (i !== 0) {
-        const y = ORIGIN_Y - i * SCALE
-        ctx.fillText(i.toString(), ORIGIN_X - 10, y + 4)
-      }
-    }
-    
+
     if (equation) {
       ctx.strokeStyle = '#0066cc'
-      ctx.lineWidth = 2
+      ctx.lineWidth = Math.max(1, Math.min(3, scale / 20))
       ctx.beginPath()
-      
+
       let firstPoint = true
-      const step = 0.1
+      const step = Math.max(1, Math.floor(40 / scale))
       
-      for (let pixelX = 0; pixelX <= CANVAS_WIDTH; pixelX += 2) {
-        const x = (pixelX - ORIGIN_X) / SCALE
+      for (let pixelX = 0; pixelX <= canvasSize.width; pixelX += step) {
+        const x = (pixelX - originX) / scale
         const y = evaluateEquation(equation, x)
-        
-        if (y !== null) {
-          const pixelY = ORIGIN_Y - y * SCALE
+
+        if (y !== null && isFinite(y)) {
+          const pixelY = originY - y * scale
           
-          if (pixelY >= 0 && pixelY <= CANVAS_HEIGHT) {
-            if (firstPoint) {
-              ctx.moveTo(pixelX, pixelY)
-              firstPoint = false
-            } else {
-              ctx.lineTo(pixelX, pixelY)
-            }
+          if (firstPoint) {
+            ctx.moveTo(pixelX, pixelY)
+            firstPoint = false
           } else {
-            firstPoint = true
+            ctx.lineTo(pixelX, pixelY)
           }
         } else {
+          if (!firstPoint) {
+            ctx.stroke()
+            ctx.beginPath()
+          }
           firstPoint = true
         }
       }
-      
-      ctx.stroke()
+
+      if (!firstPoint) {
+        ctx.stroke()
+      }
     }
   }
 
   useEffect(() => {
     drawGraph()
-  }, [equation])
+  }, [equation, scale, offsetX, offsetY, canvasSize])
+
+  useEffect(() => {
+    const handleGlobalMouseMove = (event) => handleMouseMove(event)
+    const handleGlobalMouseUp = () => handleMouseUp()
+
+    if (isDragging) {
+      document.addEventListener('mousemove', handleGlobalMouseMove)
+      document.addEventListener('mouseup', handleGlobalMouseUp)
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleGlobalMouseMove)
+      document.removeEventListener('mouseup', handleGlobalMouseUp)
+    }
+  }, [isDragging, lastMousePos])
 
   return (
-    <div>
-      <h2>Graph</h2>
+    <div className="graph-container" ref={containerRef}>
+      <div className="graph-header">
+        <div className="graph-controls">
+          <span className="zoom-indicator">
+            Zoom: {Math.round(scale / 40 * 100)}%
+          </span>
+          <button onClick={zoomOut} className="control-button">Zoom Out</button>
+          <button onClick={resetView} className="control-button">Reset View</button>
+          <button onClick={zoomIn} className="control-button">Zoom In</button>
+        </div>
+      </div>
       <canvas
         ref={canvasRef}
-        width={CANVAS_WIDTH}
-        height={CANVAS_HEIGHT}
-        style={{
-          border: '1px solid #ccc',
-          borderRadius: '4px'
-        }}
+        width={canvasSize.width}
+        height={canvasSize.height}
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        className={`graph-canvas ${isDragging ? 'dragging' : ''}`}
       />
+      <div className="graph-instructions">
+        Use mouse wheel to zoom • Click and drag to pan • Reset View to return to origin
+      </div>
     </div>
   )
 }
