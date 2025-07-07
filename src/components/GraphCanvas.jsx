@@ -20,6 +20,10 @@ function GraphCanvas({ equation }) {
         .replace(/sqrt/g, 'Math.sqrt') 
         .replace(/pi/g, 'Math.PI')
         .replace(/e/g, 'Math.E')
+        .replace(/(\d)x/g, '$1*x')
+        .replace(/x(\d)/g, 'x*$1')
+        .replace(/\)x/g, ')*x')
+        .replace(/x\(/g, 'x*(')
         .replace(/x/g, `(${x})`)
 
       const func = new Function('return ' + expr)
