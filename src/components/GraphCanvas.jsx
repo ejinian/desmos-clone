@@ -35,6 +35,8 @@ function GraphCanvas({ equation }) {
   const [isDragging, setIsDragging] = useState(false)
   const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 })
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 })
+  const [hoverCoords, setHoverCoords] = useState(null)
+  const [hoverPosition, setHoverPosition] = useState({ x: 0, y: 0 })
 
   const MIN_SCALE = 5
   const MAX_SCALE = 200
@@ -100,24 +102,63 @@ function GraphCanvas({ equation }) {
   }
 
   const handleMouseMove = (event) => {
-    if (!isDragging) return
-    
     const rect = canvasRef.current.getBoundingClientRect()
     const currentMousePos = {
       x: event.clientX - rect.left,
       y: event.clientY - rect.top
     }
     
-    const deltaX = currentMousePos.x - lastMousePos.x
-    const deltaY = currentMousePos.y - lastMousePos.y
-    
-    setOffsetX(prev => prev + deltaX)
-    setOffsetY(prev => prev + deltaY)
-    setLastMousePos(currentMousePos)
+    if (isDragging) {
+      const deltaX = currentMousePos.x - lastMousePos.x
+      const deltaY = currentMousePos.y - lastMousePos.y
+      
+      setOffsetX(prev => prev + deltaX)
+      setOffsetY(prev => prev + deltaY)
+      setLastMousePos(currentMousePos)
+    } else {
+      // Handle hover coordinate display
+      const originX = canvasSize.width / 2 + offsetX
+      const originY = canvasSize.height / 2 + offsetY
+      
+      const graphX = (currentMousePos.x - originX) / scale
+      const graphY = (originY - currentMousePos.y) / scale
+      
+      // Check if we're hovering over the function curve
+      if (equation) {
+        const calculatedY = evaluateEquation(equation, graphX)
+        
+        if (calculatedY !== null && isFinite(calculatedY)) {
+          const pixelY = originY - calculatedY * scale
+          const distance = Math.abs(currentMousePos.y - pixelY)
+          
+          // Show coordinates if we're within 10 pixels of the curve
+          if (distance <= 15) {
+            setHoverCoords({
+              x: parseFloat(graphX.toFixed(3)),
+              y: parseFloat(calculatedY.toFixed(3))
+            })
+            setHoverPosition({
+              x: currentMousePos.x,
+              y: currentMousePos.y
+            })
+          } else {
+            setHoverCoords(null)
+          }
+        } else {
+          setHoverCoords(null)
+        }
+      } else {
+        setHoverCoords(null)
+      }
+    }
   }
 
   const handleMouseUp = () => {
     setIsDragging(false)
+  }
+
+  const handleMouseLeave = () => {
+    setHoverCoords(null)
   }
 
   const zoomIn = () => {
@@ -319,7 +360,7 @@ function GraphCanvas({ equation }) {
       document.removeEventListener('mousemove', handleGlobalMouseMove)
       document.removeEventListener('mouseup', handleGlobalMouseUp)
     }
-  }, [isDragging, lastMousePos])
+  }, [isDragging, lastMousePos, equation, scale, offsetX, offsetY, canvasSize])
 
   return (
     <div className="graph-container" ref={containerRef}>
@@ -333,16 +374,41 @@ function GraphCanvas({ equation }) {
           <button onClick={zoomIn} className="control-button">Zoom In</button>
         </div>
       </div>
-      <canvas
-        ref={canvasRef}
-        width={canvasSize.width}
-        height={canvasSize.height}
-        onWheel={handleWheel}
-        onMouseDown={handleMouseDown}
-        className={`graph-canvas ${isDragging ? 'dragging' : ''}`}
-      />
+      <div style={{ position: 'relative', flex: 1 }}>
+        <canvas
+          ref={canvasRef}
+          width={canvasSize.width}
+          height={canvasSize.height}
+          onWheel={handleWheel}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+          className={`graph-canvas ${isDragging ? 'dragging' : ''}`}
+        />
+        {hoverCoords && (
+          <div
+            className="coordinate-tooltip"
+            style={{
+              position: 'absolute',
+              left: hoverPosition.x + 10,
+              top: hoverPosition.y - 10,
+              background: 'rgba(0, 0, 0, 0.8)',
+              color: 'white',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              fontSize: '12px',
+              fontFamily: 'monospace',
+              pointerEvents: 'none',
+              zIndex: 1000,
+              whiteSpace: 'nowrap'
+            }}
+          >
+            ({hoverCoords.x}, {hoverCoords.y})
+          </div>
+        )}
+      </div>
       <div className="graph-instructions">
-        Use mouse wheel to zoom • Click and drag to pan • Reset View to return to origin
+        Use mouse wheel to zoom • Click and drag to pan • Hover over the curve to see coordinates
       </div>
     </div>
   )
