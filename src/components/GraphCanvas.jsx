@@ -33,7 +33,7 @@ function GraphCanvas({ equation }) {
   const [offsetX, setOffsetX] = useState(0)
   const [offsetY, setOffsetY] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
-  const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 })
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0, offsetX: 0, offsetY: 0 })
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 })
   const [hoverCoords, setHoverCoords] = useState(null)
   const [hoverPosition, setHoverPosition] = useState({ x: 0, y: 0 })
@@ -95,9 +95,14 @@ function GraphCanvas({ equation }) {
   const handleMouseDown = (event) => {
     setIsDragging(true)
     const rect = canvasRef.current.getBoundingClientRect()
-    setLastMousePos({
-      x: event.clientX - rect.left,
-      y: event.clientY - rect.top
+    const mouseX = event.clientX - rect.left
+    const mouseY = event.clientY - rect.top
+    
+    setDragStart({
+      x: mouseX,
+      y: mouseY,
+      offsetX: offsetX,
+      offsetY: offsetY
     })
   }
 
@@ -109,21 +114,18 @@ function GraphCanvas({ equation }) {
     }
     
     if (isDragging) {
-      const deltaX = currentMousePos.x - lastMousePos.x
-      const deltaY = currentMousePos.y - lastMousePos.y
+      const deltaX = currentMousePos.x - dragStart.x
+      const deltaY = currentMousePos.y - dragStart.y
       
-      setOffsetX(prev => prev + deltaX)
-      setOffsetY(prev => prev + deltaY)
-      setLastMousePos(currentMousePos)
+      setOffsetX(dragStart.offsetX + deltaX)
+      setOffsetY(dragStart.offsetY + deltaY)
     } else {
-      // Handle hover coordinate display
       const originX = canvasSize.width / 2 + offsetX
       const originY = canvasSize.height / 2 + offsetY
       
       const graphX = (currentMousePos.x - originX) / scale
       const graphY = (originY - currentMousePos.y) / scale
       
-      // Check if we're hovering over the function curve
       if (equation) {
         const calculatedY = evaluateEquation(equation, graphX)
         
@@ -131,7 +133,6 @@ function GraphCanvas({ equation }) {
           const pixelY = originY - calculatedY * scale
           const distance = Math.abs(currentMousePos.y - pixelY)
           
-          // Show coordinates if we're within 10 pixels of the curve
           if (distance <= 15) {
             setHoverCoords({
               x: parseFloat(graphX.toFixed(3)),
@@ -360,7 +361,7 @@ function GraphCanvas({ equation }) {
       document.removeEventListener('mousemove', handleGlobalMouseMove)
       document.removeEventListener('mouseup', handleGlobalMouseUp)
     }
-  }, [isDragging, lastMousePos, equation, scale, offsetX, offsetY, canvasSize])
+  }, [isDragging, dragStart, equation, scale, offsetX, offsetY, canvasSize])
 
   return (
     <div className="graph-container" ref={containerRef}>
