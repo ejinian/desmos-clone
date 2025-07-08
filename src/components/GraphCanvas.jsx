@@ -58,10 +58,35 @@ function GraphCanvas({ equation }) {
 
   const handleWheel = (event) => {
     event.preventDefault()
-    const zoomFactor = event.deltaY > 0 ? 0.9 : 1.1
+    
+    const rect = canvasRef.current.getBoundingClientRect()
+    const mouseX = event.clientX - rect.left
+    const mouseY = event.clientY - rect.top
+    
+    const zoomFactor = event.deltaY > 0 ? 0.95 : 1.05
+    
     setScale(prevScale => {
       const newScale = prevScale * zoomFactor
-      return Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale))
+      const clampedScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale))
+      
+      const actualZoomFactor = clampedScale / prevScale
+      
+      const originX = canvasSize.width / 2 + offsetX
+      const originY = canvasSize.height / 2 + offsetY
+      
+      const mouseGraphX = (mouseX - originX) / prevScale
+      const mouseGraphY = (originY - mouseY) / prevScale
+      
+      const newMousePixelX = mouseGraphX * clampedScale
+      const newMousePixelY = mouseGraphY * clampedScale
+      
+      const newOriginX = mouseX - newMousePixelX
+      const newOriginY = mouseY + newMousePixelY
+      
+      setOffsetX(newOriginX - canvasSize.width / 2)
+      setOffsetY(newOriginY - canvasSize.height / 2)
+      
+      return clampedScale
     })
   }
 
@@ -96,11 +121,57 @@ function GraphCanvas({ equation }) {
   }
 
   const zoomIn = () => {
-    setScale(prevScale => Math.min(MAX_SCALE, prevScale * 1.2))
+    const centerX = canvasSize.width / 2
+    const centerY = canvasSize.height / 2
+    
+    setScale(prevScale => {
+      const newScale = Math.min(MAX_SCALE, prevScale * 1.2)
+      const actualZoomFactor = newScale / prevScale
+      
+      const originX = canvasSize.width / 2 + offsetX
+      const originY = canvasSize.height / 2 + offsetY
+      
+      const centerGraphX = (centerX - originX) / prevScale
+      const centerGraphY = (originY - centerY) / prevScale
+      
+      const newCenterPixelX = centerGraphX * newScale
+      const newCenterPixelY = centerGraphY * newScale
+      
+      const newOriginX = centerX - newCenterPixelX
+      const newOriginY = centerY + newCenterPixelY
+      
+      setOffsetX(newOriginX - canvasSize.width / 2)
+      setOffsetY(newOriginY - canvasSize.height / 2)
+      
+      return newScale
+    })
   }
 
   const zoomOut = () => {
-    setScale(prevScale => Math.max(MIN_SCALE, prevScale / 1.2))
+    const centerX = canvasSize.width / 2
+    const centerY = canvasSize.height / 2
+    
+    setScale(prevScale => {
+      const newScale = Math.max(MIN_SCALE, prevScale / 1.2)
+      const actualZoomFactor = newScale / prevScale
+      
+      const originX = canvasSize.width / 2 + offsetX
+      const originY = canvasSize.height / 2 + offsetY
+      
+      const centerGraphX = (centerX - originX) / prevScale
+      const centerGraphY = (originY - centerY) / prevScale
+      
+      const newCenterPixelX = centerGraphX * newScale
+      const newCenterPixelY = centerGraphY * newScale
+      
+      const newOriginX = centerX - newCenterPixelX
+      const newOriginY = centerY + newCenterPixelY
+      
+      setOffsetX(newOriginX - canvasSize.width / 2)
+      setOffsetY(newOriginY - canvasSize.height / 2)
+      
+      return newScale
+    })
   }
 
   const resetView = () => {
