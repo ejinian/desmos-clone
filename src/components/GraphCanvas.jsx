@@ -92,6 +92,17 @@ function GraphCanvas({ equation }) {
     })
   }
 
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    canvas.addEventListener('wheel', handleWheel, { passive: false })
+    
+    return () => {
+      canvas.removeEventListener('wheel', handleWheel)
+    }
+  }, [handleWheel])
+
   const handleMouseDown = (event) => {
     setIsDragging(true)
     const rect = canvasRef.current.getBoundingClientRect()
@@ -380,7 +391,6 @@ function GraphCanvas({ equation }) {
           ref={canvasRef}
           width={canvasSize.width}
           height={canvasSize.height}
-          onWheel={handleWheel}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
